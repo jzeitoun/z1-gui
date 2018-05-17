@@ -1,5 +1,7 @@
 #:kivy 1.0.9
 
+#: import Animation kivy.animation.Animation
+
 #: set primary_color [35/255.0, 35/255.0, 34/255.0, 1]
 #: set secondary_color [20/255.0, 20/255.0, 19/255.0, 1]
 #: set dropdown_highlight [1, 1, 1, 0.15]
@@ -7,6 +9,7 @@
 #: set border_color [107/255.0, 109/255.0, 112/255.0, 0.6]
 #: set text_color [1, 1, 1, 1]
 #: set input_text_color [1, 1, 1, 0.6]
+
 
 <Wavelength@Label>:
     font_size: 20
@@ -35,19 +38,39 @@
     size_hint_y: None
     text_size: self.size[0], None
     padding: 20, 0
+    show_icon: False
+    on_enter: self.show_icon = True
+    on_leave: self.show_icon = False
     Label:
         text_size: self.size[0], None
         text: base.text
     Label:
+        id: icon
         background_color: [0,0,0,0]
         size_hint_x: 0.05
-        Image:
+        on_pos: if base.hoverable_icon: self.remove_widget(icon_image)
+        HoverImageButton:
+            id: icon_image
+            size: icon.size[0]/2, icon.size[1]/2
+            pos: icon.pos[0] + (icon.size[0]/2) - (self.size[0]/2), icon.pos[1] + (icon.size[1]/2) - (self.size[1]/2)
+            color: base.image_color
             source: base.image_source
-            width: self.parent.width - (self.parent.width/2)
-            height: self.parent.height - (self.parent.height/2)
-            x: self.parent.x + ((self.parent.width - self.width)/2)
-            y: self.parent.y + ((self.parent.height - self.height)/2)
-            color: [1,1,1,1] if base.image_source is not "" else [0,0,0,0]
+            show_icon: base.show_icon
+            on_show_icon:
+                if self.show_icon and base.hoverable_icon: icon.add_widget(self)
+                elif not self.show_icon and base.hoverable_icon: icon.remove_widget(self)
+            start_anim: Animation(color=[1,0,0,1], duration=0.2)
+            end_anim: Animation(color=[1,1,1,0.6], duration=0.2)
+            on_enter:
+                if base.hoverable_icon: self.source = base.image_end
+                if base.hoverable_icon: self.end_anim.cancel(self)
+                if base.hoverable_icon: self.start_anim &= Animation(size=(icon.size[0]*.6, icon.size[1]*.6), duration=0.2)
+                if base.hoverable_icon: self.start_anim.start(self)
+            on_leave:
+                if base.hoverable_icon: self.source = base.image_source
+                if base.hoverable_icon: self.start_anim.cancel(self)
+                if base.hoverable_icon: self.end_anim &= Animation(size=(icon.size[0]/2, icon.size[1]/2), duration=0.2)
+                if base.hoverable_icon: self.end_anim.start(self)
 
 <NewProfileInput>:
     id: base

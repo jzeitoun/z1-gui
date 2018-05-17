@@ -159,9 +159,12 @@ class ProfileService(EventDispatcher):
         self.save_profile()
         self.set_profile(section)
 
-    def delete_profile(self, section):
+    def delete_profile(self, section, _):
         self._config.remove_section(section)
+        self.profiles.pop(self.profiles.index(section))
+        self.set_profile(self.profiles[0])
         self.save_profile()
+        return True
 
 class RootWidget(Widget):
 
@@ -193,8 +196,9 @@ class RootWidget(Widget):
         self.profile_service.bind(profiles=self.update_dropdown)
         self.profile_service.bind(active_profile=self.change_profile)
         self.update_dropdown(self.profile_service.profiles, initial=True)
-        create_profile_button = DropDownOption(id='CREATE', text='Create new profile...', height=25,
-            image_source="plus.png")
+        create_profile_button = DropDownOption(id='CREATE',
+                text='Create new profile...', height=25,
+                image_color=[1,1,1,1], image_source="plus.png")
         create_profile_button.bind(on_release=self.create_profile)
         self.dropdown.add_widget(create_profile_button)
         if 'file_path' in self.profile_service._config.sections():
@@ -216,8 +220,12 @@ class RootWidget(Widget):
                 self.dropdown.remove_widget(self.current_dropdown_widgets[widget_id])
         for item in largs:
             if not item in self.current_dropdown_widgets.keys():
-                new_item = DropDownOption(id=item, text=item, height=25)
+                new_item = DropDownOption(id=item, text=item, height=25,
+                        image_color=[1,1,1,0.6], hoverable_icon=True,
+                        image_source='dot.png', image_end='delete.png')
                 new_item.bind(on_release=self.profile_service.set_profile)
+                delete_callback = partial(self.profile_service.delete_profile, new_item.text)
+                new_item.ids.icon_image.bind(on_release=delete_callback)
                 self.dropdown.add_widget(new_item, index)
 
     def create_profile(self, widget):
@@ -234,6 +242,7 @@ class RootWidget(Widget):
         self.changed_profile = True
 
     def save_profile(self, widget):
+        widget.on_leave() # Prevent bubble from showing
         self.profile_service.saved_offsets = self.profile_service.current_offsets
         self.ids.save_button.ids.icon.color = match_color
         self.profile_service.save_profile()
@@ -258,6 +267,7 @@ class RootWidget(Widget):
         self.profile_service.save_profile()
 
     def apply_offsets(self, widget):
+        widget.on_leave() # Prevent bubble from showing
         self.profile_service.applied_offsets = self.profile_service.current_offsets
         if not self.file_path == '':
             widget.ids.icon.color = match_color
@@ -296,7 +306,7 @@ class RootWidget(Widget):
         if self.file_path:
             self.ids.directory_button.ids.icon.color = match_color
 
-
+class HoverImageButton(HoverBehavior, ButtonBehavior, Image): pass
 
 class HintButton(HoverBehavior, Button):
 
@@ -364,9 +374,12 @@ class CustomDropDown(DropDown):
 
 class DropDownOption(ButtonBehavior, HoverBehavior, BoxLayout):
 
+    image_color = ListProperty([1,1,1,1])
     text = StringProperty('')
     image_source = StringProperty('')
     icon = BooleanProperty(False)
+    hoverable_icon = BooleanProperty(False)
+    image_end = StringProperty('')
 
     def on_enter(self):
         with self.canvas.before:
@@ -410,6 +423,7 @@ class OffsetInput(BoxLayout):
 class MainApp(App):
 
     def build(self):
+        self.title = 'Z1'
         root = RootWidget()
         root.setup()
         return root

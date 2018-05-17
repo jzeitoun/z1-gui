@@ -43,14 +43,15 @@ import time
 import sys
 import os
 
-from plyer import filechooser
+from plyer.platforms.win.filechooser import WinFileChooser
 
 if sys.version_info[0] < 3:
     from ConfigParser import ConfigParser
 else:
     from configparser import ConfigParser
 
-_ROOT = '/Users/blakjak/Desktop'
+#_ROOT = '/Users/blakjak/Desktop'
+_ROOT = os.environ['Z1GUI']
 
 secondary_color = [20/255.0, 20/255.0, 19/255.0, 1]
 dropdown_highlight = [1, 1, 1, 0.15]
@@ -88,6 +89,7 @@ BoxLayout:
 class ProfileService(EventDispatcher):
     '''
     Simple service for managing profiles.
+    Requires an environment variable: Z1GUI
     '''
 
     active_profile = StringProperty('')
@@ -109,7 +111,7 @@ class ProfileService(EventDispatcher):
             left_638, right_638
             )
 
-    def __init__(self, path, initial_profile='default', **kwargs):
+    def __init__(self, path, initial_profile='water', **kwargs):
         super(ProfileService, self).__init__(**kwargs)
         self._path = self._ensure_file(path)
         self._config = ConfigParser()
@@ -135,21 +137,23 @@ class ProfileService(EventDispatcher):
         if hasattr(section, 'text'):
             section = section.text
         self.active_profile = section
-        for item in self._config.items(section):
-            param,val = item
-            setattr(self, param, round(float(val), 6))
+        try:
+            for item in self._config.items(section):
+                param,val = item
+                setattr(self, param, round(float(val), 6))
+        except:
+            self.add_profile(section)
         self.saved_offsets = self.current_offsets
 
     def save_profile(self, widget=None):
-        print('Profile saved.')
-        #self.saved_offsets = self.current_offsets
         for param,val in self.parameters.items():
             self._config.set(self.active_profile, param, str(val))
         with open(self._path, 'r+') as f:
             self._config.write(f)
 
-    def add_profile(self, widget):
-        section = widget.text
+    def add_profile(self, section):
+        if hasattr(section, 'text'):
+            section = section.text
         if section in self._config.sections():
             return
         self.profiles.append(section)
@@ -203,7 +207,10 @@ class RootWidget(Widget):
 
     @property
     def current_dropdown_widgets(self):
-        return {widget.id: widget for widget in self.dropdown.children[0].children if hasattr(widget, 'id')}
+        if len(self.dropdown.children[0].children):
+            return {widget.id: widget for widget in self.dropdown.children[0].children if hasattr(widget, 'id')}
+        else:
+            return {}
 
     def update_dropdown(self, *largs, **kwargs):
         index = 0 if 'initial' in kwargs else 1
@@ -245,7 +252,8 @@ class RootWidget(Widget):
 
     def select_directory(self, widget):
         widget.on_leave() # Prevent bubble from showing
-        path_list = filechooser.choose_dir()
+        path_list = WinFileChooser().choose_dir(title='Choose save directory...')
+        #path_list = filechooser.choose_dir()
         if path_list:
             self.file_path = path_list[0]
         if not self.file_path:
@@ -274,25 +282,18 @@ class RootWidget(Widget):
             widget.ids.icon.color = text_color
 
     def check_applied_status(self, *widget):
-        print('Checked applied status')
         if self.profile_service.applied_offsets == self.profile_service.current_offsets:
             self.ids.apply_button.ids.icon.color = match_color
         else:
             self.ids.apply_button.ids.icon.color = text_color
 
     def check_saved_status(self, *widget):
-        print('{} = {}'.format(
-            self.profile_service.saved_offsets,
-            self.profile_service.current_offsets
-            )
-            )
         if self.profile_service.saved_offsets == self.profile_service.current_offsets:
             self.ids.save_button.ids.icon.color = match_color
         else:
             self.ids.save_button.ids.icon.color = text_color
 
     def on_file_path(self, instance, *args):
-        print('File change detected.')
         if self.file_path:
             self.ids.directory_button.ids.icon.color = match_color
 
